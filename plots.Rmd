@@ -111,7 +111,12 @@ df_bh %>% filter(units == "2012 = 100") %>%
   geom_line()+
   ylab("Index (2012 = 100)")+
   xlab("")+
-  scale_color_discrete(name = "", labels = c("ip: oil & gas drilling", "number of rigs"))
+  scale_color_discrete(name = "", labels = c("ip: drilling oil & gas wells", "rig count"))+
+  scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
+  theme(axis.text.x = element_text(angle = 0))
+  labs(title = "United States: drilling activity",
+       subtitle = "number of rotary rigs and industrial production",
+       caption = "Monthly data. Source: Baker Hughes, Federal Reserve")
 ```
 
 
