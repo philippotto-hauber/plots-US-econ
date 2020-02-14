@@ -119,5 +119,18 @@ df_bh %>% filter(units == "2012 = 100") %>%
                caption = "Monthly data. Source: Baker Hughes, Federal Reserve")
 ```
 
+Another interesting aspect of the Baker Hughes rig count data is the split between oil and gas wells:
+
+```{r}
+df_bh %>% filter(variable %in% c("Oil", "Gas"), 
+                 date >= as.Date("1990-01-01"), 
+                 units == "number") %>%
+          ggplot(aes(x = date, y = value, col = variable))+
+          geom_line()+
+          scale_color_discrete(name = "", labels = c("gas", "oil"))+
+          labs(title = "Number of rotary rigs in the United States",
+               caption = "Monthly data. Source: Baker Hughes",
+               y = "", x = "")
+```
 
 
