@@ -101,22 +101,22 @@ df_ip <- select(df_ip, date, variable = series_id, value)
 
 Merge datasets and produce plot of total rigs (oil + gas + miscellaneous) and drilling activity
 
-```{r}
+```{r, results='hide'}
 # plot total number of rigs and drilling activity
 df_bh %>% filter(units == "2012 = 100") %>% 
-  select(-units) %>%
-  rbind(df_ip) %>% 
-  filter(date >= "1990-01-01", variable %in% c("Total", "IPN213111S")) %>% 
-  ggplot(aes(x = date, y = value, col = variable))+
-  geom_line()+
-  ylab("Index (2012 = 100)")+
-  xlab("")+
-  scale_color_discrete(name = "", labels = c("ip: drilling oil & gas wells", "rig count"))+
-  scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
-  theme(axis.text.x = element_text(angle = 0))
-  labs(title = "United States: drilling activity",
-       subtitle = "number of rotary rigs and industrial production",
-       caption = "Monthly data. Source: Baker Hughes, Federal Reserve")
+          select(-units) %>%
+          rbind(df_ip) %>% 
+          filter(date >= "1990-01-01", variable %in% c("Total", "IPN213111S")) %>% 
+          ggplot(aes(x = date, y = value, col = variable))+
+          geom_line()+
+          ylab("Index (2012 = 100)")+
+          xlab("")+
+          scale_color_discrete(name = "", labels = c("ip: drilling oil & gas wells", "rig count"))+
+          scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
+          theme(axis.text.x = element_text(angle = 0))
+          labs(title = "United States: drilling activity",
+               subtitle = "number of rotary rigs and industrial production",
+               caption = "Monthly data. Source: Baker Hughes, Federal Reserve")
 ```
 
 
