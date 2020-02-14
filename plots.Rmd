@@ -68,7 +68,7 @@ tmp <- df_bh %>% mutate(yy = year(date)) %>%
                  group_by(yy, variable) %>%
                  summarise(value2012 = mean(value))
 
-# merge with original data to calculate rebased values
+# calculate rebased values
 df_bh_rebased <- merge(df_bh, tmp, by = "variable") %>%
                  mutate(value_rebased = 100 * value / value2012) %>%
                  select(date, variable, value = value_rebased, -value, -value2012, -yy) %>%
@@ -110,6 +110,27 @@ df_fred <- select(df_fred, date, variable = series_id, value)
 
 # remove tmp dataframes
 rm(tmp_ip, tmp_inv)
+
+# calculate mean in 2012 to rebase FRED series
+tmp <- df_fred %>% mutate(yy = year(date)) %>%
+                 filter(yy == 2012) %>%
+                 group_by(yy, variable) %>%
+                 summarise(value2012 = mean(value))
+
+# calculate rebased values
+df_fred_rebased <- merge(df_fred, tmp, by = "variable") %>%
+                 mutate(value_rebased = 100 * value / value2012) %>%
+                 select(date, variable, value = value_rebased, -value, -value2012, -yy) %>%
+                 mutate(units = "2012 = 100")
+
+# remove tmp dataframe
+rm(tmp)
+
+# merge with original data and add colum "units"
+df_fred %>% mutate(units = "number") %>% rbind(df_fred_rebased) -> df_fred
+
+# remove dataframe after merge
+rm(df_fred_rebased)
 ```
 
 ## Plot number of rigs vs drilling activity
@@ -118,21 +139,23 @@ Merge datasets and produce plot of total rigs (oil + gas + miscellaneous) and dr
 
 ```{r}
 # plot total number of rigs and drilling activity
-df_bh %>% filter(units == "2012 = 100") %>% 
-          select(-units) %>%
-          rbind(df_ip) %>% 
-          filter(date >= "1990-01-01", variable %in% c("Total", "IPN213111S")) %>% 
+df_bh %>% filter(variable == "Total") %>% 
+          rbind(df_fred) %>% 
+          filter(date >= "1990-01-01", units == "2012 = 100") %>% 
           ggplot(aes(x = date, y = value, col = variable))+
           geom_line()+
           ylab("Index (2012 = 100)")+
           xlab("")+
-          scale_color_discrete(name = "", labels = c("ip: oil & gas well drilling", "rig count"))+
+          expand_limits(y = 0)+
+          scale_color_discrete(name = "", labels = c("private fixed inv.: mining, shafts & wells",
+                                                     "ip: oil & gas well drilling", 
+                                                     "rotary rig count")
+                               )+
           scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
-          theme(axis.text.x = element_text(angle = 0))+
-          labs(title = "United States: drilling activity",
-               subtitle = "number of rotary rigs and industrial production",
+          theme(axis.text.x = element_text(angle = 0), legend.position="top")+
+          labs(title = "United States: oil and gas exploration",
                caption = "Quarterly data. Source: Baker Hughes, Federal Reserve, Bureau of Economic Analysis")
-#ggsave("plot_rigs_ip.png")
+ggsave("plot_rigs_ip.png")
 ```
 
 Another interesting aspect of the Baker Hughes rig count data is the split between oil and gas wells:
@@ -144,22 +167,26 @@ df_bh %>% filter(variable %in% c("Oil", "Gas"),
           ggplot(aes(x = date, y = value, col = variable))+
           geom_line()+
           scale_color_discrete(name = "", labels = c("gas", "oil"))+
+          scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
           labs(title = "Number of rotary rigs in the United States",
-               caption = "Monthly data. Source: Baker Hughes",
+               caption = "Quarterly data. Source: Baker Hughes",
                y = "", x = "")
-#ggsave("plot_oil_and_gas_rigs.png")
+ggsave("plot_oil_and_gas_rigs.png")
 ```
 
 ## Export data
 
 ```{r}
-df_export <- df_bh %>% filter(units == "number", variable == "Total") %>%
+df_export <- df_bh %>% filter(variable == "Total") %>%
                        select(-units) %>%
-                       rbind(df_ip) %>%
-                       filter(date >= as.Date("1990-01-01")) %>%
+                       rbind(df_fred) %>%
+                       filter(date >= as.Date("1990-01-01"), units == "number") %>%
                        spread(variable, value) %>%
-                       select(date, ip_drilling = IPN213111S, rigcount = Total)
+                       select(date, 
+                              inv_struct_shafts =E318RX1Q020SBEA, 
+                              ip_drilling = IPN213111S, 
+                              rigcount = Total)
 
-#write.table(file = "rigcount_ip.csv", df_export, sep = ";", dec = ".", row.names = FALSE, na = "#NV")
+write.table(file = "rigcount_ip_inv.csv", df_export, sep = ";", dec = ".", row.names = FALSE, na = "#NV")
 ```
 
