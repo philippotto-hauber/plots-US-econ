@@ -21,6 +21,8 @@ setwd("C:/Users/hauber/Documents/GitHub/plots-US-econ")
 
 # Rig count and drilling activity
 
+## Baker Hughes data
+
 Data are from [Baker Hughes webpage](<https://rigcount.bakerhughes.com/na-rig-count/>) but need to be downloaded and stored in the repo. Currently, the xlsb-file and sheet with the historical data are called (*this should be the first thing to check if something goes wrong!*):
 
 ```{r, echo = TRUE}
@@ -46,9 +48,49 @@ data <- read_xlsb(path = paste0(getwd(), "/", filename),
 # overwrite dates
 start_date <- "1987-07-17"
 data$Date <- seq(as.Date(start_date), length.out = nrow(data), by = "1 week")
+
+# convert from weekly to monthly frequency
+data %>% gather(variable, value_dd, -Date) %>%
+        mutate(mm = month(Date), yy = year(Date)) %>%
+        group_by(yy, mm, variable) %>%
+        summarise(value = mean(value_dd, na.rm = TRUE)) %>%
+        ungroup() %>%
+        mutate(date = make_date(year = yy, month = mm)) %>%
+        select(date, variable, value, -yy, -mm) -> data
 ```
 
-Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*).
+Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*) and convert to monthly frequency. 
+
+## Federal Reserve industrial production data (G.17)
+
+As a measure of drilling activity we use the subindex *oil and gas well drilling* from the Federal Reserve's Industrial Production (G.17) release. The series is sourced from FRED (**IPN213111S**)
+
+```{r}
+library(fredr)
+fredr_set_key("84efd638e2db29ef758e0d8e081a4c05")
+
+# download data
+tmp <- fredr(series_id = "IPN213111S" , 
+                 observation_start = as.Date("1987-01-01"),
+                ) 
+
+# relabel series-id column
+tmp <- select(tmp, date, variable = series_id, value)
+```
+
+## Plot number of rigs vs drilling activity
+
+Merge datasets and produce a quick-and-dirty plot of total rigs (oil + gas + miscellaneous) and drilling activity
+
+```{r}
+# merge 
+data <- rbind(data, tmp)
+
+# plot total number of rigs and drilling activity
+data %>% filter(date >= "1990-01-01", variable %in% c("Total", "IPN213111S")) %>%
+         ggplot(aes(x = date, y = value, col = variable))+
+         geom_line()
+```
 
 
 
