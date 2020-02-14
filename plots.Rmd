@@ -138,6 +138,13 @@ ggsave("plot_oil_and_gas_rigs.png")
 ## Export data
 
 ```{r}
+df_export <- df_bh %>% filter(units == "number", variable == "Total") %>%
+                       select(-units) %>%
+                       rbind(df_ip) %>%
+                       filter(date >= as.Date("1990-01-01")) %>%
+                       spread(variable, value) %>%
+                       select(date, ip_drilling = IPN213111S, rigcount = Total)
 
+write.table(file = "rigcount_ip.csv", df_export, sep = ";", dec = ".", row.names = FALSE, na = "#NV")
 ```
 
