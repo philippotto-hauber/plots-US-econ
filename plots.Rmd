@@ -40,26 +40,45 @@ library(readxlsb)
 library(ggplot2)
 
 # read in data
-data <- read_xlsb(path = paste0(getwd(), "/", filename),
+df_bh <- read_xlsb(path = paste0(getwd(), "/", filename),
                   sheet = sheetname,
                   col_names = TRUE,
                   skip = 6)
 
 # overwrite dates
 start_date <- "1987-07-17"
-data$Date <- seq(as.Date(start_date), length.out = nrow(data), by = "1 week")
+df_bh$Date <- seq(as.Date(start_date), length.out = nrow(df_bh), by = "1 week")
 
 # convert from weekly to monthly frequency
-data %>% gather(variable, value_dd, -Date) %>%
-        mutate(mm = month(Date), yy = year(Date)) %>%
-        group_by(yy, mm, variable) %>%
-        summarise(value = mean(value_dd, na.rm = TRUE)) %>%
-        ungroup() %>%
-        mutate(date = make_date(year = yy, month = mm)) %>%
-        select(date, variable, value, -yy, -mm) -> data
+df_bh %>% gather(variable, value_dd, -Date) %>%
+          filter(!(variable %in% c("X..Gas", "X..Oil"))) %>%
+          mutate(mm = month(Date), yy = year(Date)) %>%
+          group_by(yy, mm, variable) %>%
+          summarise(value = round(mean(value_dd, na.rm = TRUE), digits = 0)) %>%
+          ungroup() %>%
+          mutate(date = make_date(year = yy, month = mm)) %>%
+          select(date, variable, value, -yy, -mm) -> df_bh
 ```
 
-Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*) and convert to monthly frequency. 
+Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*) and convert to monthly frequency. Furthermore, to plot the rig count along with drilling activity we need to rebase the series (2012 = 100):
+
+```{r}
+
+# calculate mean in 2012
+tmp <- df_bh %>% mutate(yy = year(date)) %>%
+                 filter(yy == 2012) %>%
+                 group_by(yy, variable) %>%
+                 summarise(value2012 = mean(value))
+
+# merge with original data to calculate rebased values
+df_bh_rebased <- merge(df_bh, tmp, by = "variable") %>%
+                 mutate(value_rebased = 100 * value / value2012) %>%
+                 select(date, variable, value = value_rebased, -value, -value2012, -yy) %>%
+                 mutate(units = "2012 = 100")
+
+# combine with original data plus additional column indicating transformation
+df_bh %>% mutate(units = "number") %>% rbind(df_bh_rebased) -> df_bh
+```
 
 ## Federal Reserve industrial production data (G.17)
 
@@ -70,26 +89,29 @@ library(fredr)
 fredr_set_key("84efd638e2db29ef758e0d8e081a4c05")
 
 # download data
-tmp <- fredr(series_id = "IPN213111S" , 
-                 observation_start = as.Date("1987-01-01"),
-                ) 
+df_ip <- fredr(series_id = "IPN213111S" , 
+               observation_start = as.Date("1987-01-01"),
+              ) 
 
 # relabel series-id column
-tmp <- select(tmp, date, variable = series_id, value)
+df_ip <- select(df_ip, date, variable = series_id, value)
 ```
 
 ## Plot number of rigs vs drilling activity
 
-Merge datasets and produce a quick-and-dirty plot of total rigs (oil + gas + miscellaneous) and drilling activity
+Merge datasets and produce plot of total rigs (oil + gas + miscellaneous) and drilling activity
 
 ```{r}
-# merge 
-data <- rbind(data, tmp)
-
 # plot total number of rigs and drilling activity
-data %>% filter(date >= "1990-01-01", variable %in% c("Total", "IPN213111S")) %>%
-         ggplot(aes(x = date, y = value, col = variable))+
-         geom_line()
+df_bh %>% filter(units == "2012 = 100") %>% 
+  select(-units) %>%
+  rbind(df_ip) %>% 
+  filter(date >= "1990-01-01", variable %in% c("Total", "IPN213111S")) %>% 
+  ggplot(aes(x = date, y = value, col = variable))+
+  geom_line()+
+  ylab("Index (2012 = 100)")+
+  xlab("")+
+  scale_color_discrete(name = "", labels = c("ip: oil & gas drilling", "number of rigs"))
 ```
 
 
