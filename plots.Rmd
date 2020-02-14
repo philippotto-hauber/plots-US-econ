@@ -1,1 +1,45 @@
+---
+title: "Plots US economy"
+author: "Philipp Hauber"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=6, #fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+```{r}
+# clear workspace
+rm(list = ls())
+# turn off scientific notation
+options(scipen = 999)
+# working directory
+setwd("C:/Users/hauber/Documents/GitHub/plots-US-econ")
+```
+
+# Rig count and drilling activity
+
+Data are from [Baker Hughes webpage](<https://rigcount.bakerhughes.com/na-rig-count/>) but need to be downloaded and stored in the repo. Currently, the xlsb-file is called and the historical data are in sheet:
+
+```{r}
+filename <- "North America Rotary Rig Count (Jan 2000 - Current).xlsb"
+sheetname <- "US Oil & Gas Split"
+```
+
+
+```{r}
+library(lubridate)
+library(dplyr)
+library(tidyr)
+library(readxlsb)
+library(ggplot2)
+
+data <- read_xlsb(path = paste0(getwd(), "/", filename),
+                  sheet = sheetname,
+                  col_names = TRUE,
+                  skip = 6)
+```
+
 
