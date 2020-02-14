@@ -1,2 +1,4 @@
 *.xlsb
 *.csv
+*.html
+*.Rhistory
