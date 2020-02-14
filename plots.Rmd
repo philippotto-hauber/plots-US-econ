@@ -21,12 +21,13 @@ setwd("C:/Users/hauber/Documents/GitHub/plots-US-econ")
 
 # Rig count and drilling activity
 
-Data are from [Baker Hughes webpage](<https://rigcount.bakerhughes.com/na-rig-count/>) but need to be downloaded and stored in the repo. Currently, the xlsb-file is called and the historical data are in sheet:
+Data are from [Baker Hughes webpage](<https://rigcount.bakerhughes.com/na-rig-count/>) but need to be downloaded and stored in the repo. Currently, the xlsb-file and sheet with the historical data are called (*this should be the first thing to check if something goes wrong!*):
 
-```{r}
+```{r, echo = TRUE}
 filename <- "North America Rotary Rig Count (Jan 2000 - Current).xlsb"
 sheetname <- "US Oil & Gas Split"
 ```
+
 
 
 ```{r}
@@ -36,10 +37,18 @@ library(tidyr)
 library(readxlsb)
 library(ggplot2)
 
+# read in data
 data <- read_xlsb(path = paste0(getwd(), "/", filename),
                   sheet = sheetname,
                   col_names = TRUE,
                   skip = 6)
+
+# overwrite dates
+start_date <- "1987-07-17"
+data$Date <- seq(as.Date(start_date), length.out = nrow(data), by = "1 week")
 ```
+
+Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*).
+
 
 
