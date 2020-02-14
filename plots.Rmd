@@ -30,8 +30,6 @@ filename <- "North America Rotary Rig Count (Jan 2000 - Current).xlsb"
 sheetname <- "US Oil & Gas Split"
 ```
 
-
-
 ```{r}
 library(lubridate)
 library(dplyr)
@@ -50,17 +48,17 @@ start_date <- "1987-07-17"
 df_bh$Date <- seq(as.Date(start_date), length.out = nrow(df_bh), by = "1 week")
 
 # convert from weekly to monthly frequency
-df_bh %>% gather(variable, value_dd, -Date) %>%
+df_bh %>% gather(variable, value_ww, -Date) %>%
           filter(!(variable %in% c("X..Gas", "X..Oil"))) %>%
-          mutate(mm = month(Date), yy = year(Date)) %>%
-          group_by(yy, mm, variable) %>%
-          summarise(value = round(mean(value_dd, na.rm = TRUE), digits = 0)) %>%
+          mutate(qq = ceiling(month(Date) / 3), yy = year(Date)) %>%
+          group_by(yy, qq, variable) %>%
+          summarise(value = round(mean(value_ww, na.rm = TRUE), digits = 0)) %>%
           ungroup() %>%
-          mutate(date = make_date(year = yy, month = mm)) %>%
-          select(date, variable, value, -yy, -mm) -> df_bh
+          mutate(date = make_date(year = yy, month = 3 * qq)) %>%
+          select(date, variable, value, -yy, -qq) -> df_bh
 ```
 
-Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*) and convert to monthly frequency. Furthermore, to plot the rig count along with drilling activity we need to rebase the series (2012 = 100):
+Weekly dates aren't properly read in so we overwrite them manually with starting date `r start_date` (*periodically check that this is still the case!*) and convert to quarterly frequency. Furthermore, to plot the rig count along with drilling activity we need to rebase the series (2012 = 100):
 
 ```{r}
 
@@ -76,8 +74,14 @@ df_bh_rebased <- merge(df_bh, tmp, by = "variable") %>%
                  select(date, variable, value = value_rebased, -value, -value2012, -yy) %>%
                  mutate(units = "2012 = 100")
 
+# remove tmp dataframe
+rm(tmp)
+
 # combine with original data plus additional column indicating transformation
 df_bh %>% mutate(units = "number") %>% rbind(df_bh_rebased) -> df_bh
+
+# remove dataframe after merge
+rm(df_bh_rebased)
 ```
 
 ## Federal Reserve industrial production data (G.17)
@@ -88,13 +92,24 @@ As a measure of drilling activity we use the subindex *oil and gas well drilling
 library(fredr)
 fredr_set_key("84efd638e2db29ef758e0d8e081a4c05")
 
-# download data
-df_ip <- fredr(series_id = "IPN213111S" , 
+# download industrial production data
+tmp_ip <- fredr(series_id = "IPN213111S", 
                observation_start = as.Date("1987-01-01"),
+               frequency = "q"
               ) 
 
-# relabel series-id column
-df_ip <- select(df_ip, date, variable = series_id, value)
+# download real PFI:mining, wells and shafts
+tmp_inv <- fredr(series_id = "E318RX1Q020SBEA", 
+               observation_start = as.Date("1987-01-01"),
+               frequency = "q"
+              ) 
+
+# merge into one dataframe and relabel series_id column
+df_fred <- rbind(tmp_ip, tmp_inv)
+df_fred <- select(df_fred, date, variable = series_id, value)
+
+# remove tmp dataframes
+rm(tmp_ip, tmp_inv)
 ```
 
 ## Plot number of rigs vs drilling activity
@@ -116,8 +131,8 @@ df_bh %>% filter(units == "2012 = 100") %>%
           theme(axis.text.x = element_text(angle = 0))+
           labs(title = "United States: drilling activity",
                subtitle = "number of rotary rigs and industrial production",
-               caption = "Monthly data. Source: Baker Hughes, Federal Reserve")
-ggsave("plot_rigs_ip.png")
+               caption = "Quarterly data. Source: Baker Hughes, Federal Reserve, Bureau of Economic Analysis")
+#ggsave("plot_rigs_ip.png")
 ```
 
 Another interesting aspect of the Baker Hughes rig count data is the split between oil and gas wells:
@@ -132,7 +147,7 @@ df_bh %>% filter(variable %in% c("Oil", "Gas"),
           labs(title = "Number of rotary rigs in the United States",
                caption = "Monthly data. Source: Baker Hughes",
                y = "", x = "")
-ggsave("plot_oil_and_gas_rigs.png")
+#ggsave("plot_oil_and_gas_rigs.png")
 ```
 
 ## Export data
@@ -145,6 +160,6 @@ df_export <- df_bh %>% filter(units == "number", variable == "Total") %>%
                        spread(variable, value) %>%
                        select(date, ip_drilling = IPN213111S, rigcount = Total)
 
-write.table(file = "rigcount_ip.csv", df_export, sep = ";", dec = ".", row.names = FALSE, na = "#NV")
+#write.table(file = "rigcount_ip.csv", df_export, sep = ";", dec = ".", row.names = FALSE, na = "#NV")
 ```
 
